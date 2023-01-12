@@ -1,83 +1,61 @@
 #ifndef __RENDERING_H__
 #define __RENDERING_H__
 
-#include "vec2.h"
-#include "color.h"
-#include <vector>
+#include <core/color.h>
+#include <core/vec2.h>
+#include <string_view>
+#include <span>
 
 /// This namespace contains objects that are helper functions that support the rendering
 /// of general ui elements, particles, emitters, and forces.
 namespace rendering {
 
-/*
- * These following structures are passed to the update functions further down in this file
- * to render the individual objects. Each of the update functions take a vector of these
- * structs which are then rendered in the next call to the render function
- */
 
-/// The struct that represents an individual particle that is to be rendered to screen
-struct ParticleInfo {
-    /// The position of the particle. The screen coordinates range from [-1, -1] in the
-    /// lower left corner to [1, 1] in the upper right corner
-    vec2 position = {0,0};
+class Window {
+public:
+    Window();
+    ~Window();
+    
+    // Returns a time value in seconds since some epoch
+    double time() const;
 
-    /// The size of the particle. This size is expressed roughly in pixels
-    float radius = 2.f;
+    // Draw and UI operations should be committed between begin and end frame
+    void beginFrame();
+    void endFrame();
 
-    /// The color of the particle. Each color component has to be in the range [0, 1]
-    Color color = Color(1.f, 0.8f, 0.2f);
+    // Clear the window with specific color
+    void clear(Color color);
 
-    /// The remaining lifetime of the particle in seconds
-    float lifetime = 60.f;
+    void drawRectangle(vec2 pos, vec2 size, Color color);
+    void drawRectangle(std::span<vec2> pos, std::span<vec2> size, std::span<Color> color);
+
+    // Draws a rectangle by extracting fields from packed data.
+    // The stride represents the number of bytes between each rectangle primitive.
+    void drawRectangle(const vec2* pos, const vec2* size, const Color* color, size_t count, size_t stride_in_bytes = 0);
+
+    void drawSphere(vec2 pos, float radius, Color color);
+    void drawSphere(std::span<vec2> pos, std::span<float> radius, std::span<Color> color);
+    
+    // Draws a sphere by extracting fields from packed data.
+    // The stride represents the number of bytes between each sphere primitive.
+    void drawSphere(const vec2* pos, const float* radius, const Color* color, size_t count, size_t stride_in_bytes = 0);
+    
+    // UI
+    bool button(std::string_view label) const;
+    bool sliderFloat(std::string_view id, float& value, float min, float max) const;
+    bool sliderVec2(std::string_view id, vec2& value, float min, float max) const;
+    bool sliderInt(std::string_view id, int& value, int min, int max) const;
+    bool colorPicker(std::string_view id, Color& color) const;
+
+    // Horizontal line separator
+    void separator() const;
+
+private:
+    struct WindowHandle;
+    WindowHandle* hwnd;
 };
 
-/// The struct that represents an individual emitter location that is to be rendered. Note
-/// that some emitters might not have a physical location and might not require a
-/// corresponding EmitterInfo struct
-struct EmitterInfo {
-    /// The position of the emitter. The screen coordinates range from [-1, -1] in the
-    /// lower left corner to [1, 1] in the upper right corner
-    vec2 position = {0,0};
 
-    /// The size of the rectangle that is used to represent the emitter in pixels
-    float size = 12.5f;
-
-    /// The color of the emitter. Each color component has to be in the range [0, 1]
-    Color color = Color(0.2f, 1.f, 0.8f);
-};
-
-/// The struct that represents an individual force location that is to be rendered. Note
-/// that some forces might not have a physical location and might not require a
-/// corresponding ForceInfo struct
-struct ForceInfo {
-    /// The position of the force. The screen coordinates range from [-1, -1] in the
-    /// lower left corner to [1, 1] in the upper right corner
-    vec2 position = {0,0};
-
-    // Size of the triangle that is used to represent the force in pixels
-    float size = 12.5f;
-
-    // The color for the force. Each color component has to be in the range [0, 1]
-    Color color = Color(0.8f, 0.2f, 1.f);
-};
-
-/**
- * This function creates the rendering window and initializes all the necessary background
- * state. This function must only be called once per application.
- *
- * \throw std::runtime_error If there was a compilation error with a shader
- * \pre This function has not been called before
- */
-void createWindow();
-
-/**
- * This function destroys the rendering window and the associated background state. This
- * function must only be called once at the end of the application. After this function
- * has been called, no other function in this file must be called anymore.
- *
- * \pre This function has not been called before
- */
-void destroyWindow();
 
 /**
  * Sets the background color that is used for clearing the window.

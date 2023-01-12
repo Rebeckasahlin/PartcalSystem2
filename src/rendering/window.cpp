@@ -1,4 +1,4 @@
-#include "util/rendering.h"
+#include "rendering/window.h"
 
 #include "glad/glad.h"
 #include <GLFW/glfw3.h>
@@ -8,11 +8,9 @@
 #include "Tracy.hpp"
 #include <array>
 #include <assert.h>
-#include <chrono>
 #include <iostream>
 #include <string>
-#include <unordered_map>
-
+#include <vector>
 
 // Dear students;
 // if you have found your way here, rest assured that understanding the rest of this file
@@ -22,11 +20,12 @@
 // all documented so that looking at the source code should not be necessary.
 // Having said that, if you are interested in anything, of course continue browsing here
 
+
+
 namespace {
 
 // Holds the pointer to the active (and only) window
 GLFWwindow* _window = nullptr;
-struct { float r = 0.05f; float g = 0.1f; float b = 0.1f; } _backgroundColor;
 
 // Structure to hold information to render an individual type of renderable object, in
 // this case, particles, emitters, and forces
@@ -658,9 +657,6 @@ void updateWindowSize([[ maybe_unused ]] GLFWwindow* window, int width, int heig
     }
 }
 
-// Stores the timestamp when the previous frame was finished
-std::chrono::time_point<std::chrono::high_resolution_clock> prevFrameTime;
-
 } // namespace
 
 namespace rendering {
@@ -894,7 +890,32 @@ bool endFrame() {
     return !shouldClose;
 }
 
-} // namespace rendering
+Window::Window() {
+
+}
+
+void Window::BeginFrame() {
+    ZoneScoped checkOpenGLError("beginFrame (begin)");
+    // Compute how much time has passed since the beginning of the last frame
+    auto currentTime = std::chrono::high_resolution_clock::now();
+    const std::chrono::nanoseconds ns = currentTime - prevFrameTime;
+    const double milliseconds = ns.count() / 1e9;
+    const double dt = milliseconds;
+    TracyPlot("deltatime", dt);
+    prevFrameTime = currentTime;
+
+    // Query the events from the operating system, such as input from mouse or keyboards
+    glfwPollEvents();
+
+    // Clear the rendering buffer with the selected background color
+    glClearColor(_backgroundColor.r, _backgroundColor.g, _backgroundColor.b, 1.f);
+    glClear(GL_COLOR_BUFFER_BIT);
+
+    checkOpenGLError("beginFrame (end)");
+    return static_cast<float>(dt);
+}
+
+}  // namespace rendering
 
 namespace ui {
 

@@ -6,7 +6,7 @@ set_property(GLOBAL PROPERTY PREDEFINED_TARGETS_FOLDER CMake)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/bin)
 
 add_library(project_options INTERFACE)
-target_compile_features(project_options INTERFACE cxx_std_17)
+target_compile_features(project_options INTERFACE cxx_std_20)
 
 add_library(project_warnings INTERFACE)
 if (WIN32)
@@ -78,27 +78,34 @@ target_include_directories(glad PUBLIC ext/glad/include)
 set_property(TARGET glad PROPERTY FOLDER "External")
 
 ###
+# Rendering
+###
+add_library(rendering include/rendering/window.h src/rendering/window.cpp)
+target_include_directories(rendering PRIVATE "include")
+target_link_libraries(rendering PUBLIC tracy PRIVATE glad glfw imgui project_options project_warnings)
+
+###
 # Particle System Library
 ###
 
+# ADD HEADER FILES HERE
 set(HEADER_FILES
-  include/particlesystem.h
-  include/util/rendering.h
+  include/particlesystem/particlesystem.h
 )
 
+# ADD SOURCE FILES HERE
 set(SOURCE_FILES
-  src/particlesystem.cpp
-  src/util/rendering.cpp
+  src/particlesystem/particlesystem.cpp
 )
 
-add_library(ParticleSystem
+add_library(particlesystem
   ${SOURCE_FILES}
   ${HEADER_FILES}
 )
 
 source_group("Header Files" FILES ${HEADER_FILES})
-target_include_directories(ParticleSystem PRIVATE "include")
-target_link_libraries(ParticleSystem PUBLIC tracy PRIVATE glad glfw imgui project_options project_warnings)
+target_include_directories(particlesystem PRIVATE "include")
+target_link_libraries(particlesystem PUBLIC tracy PRIVATE project_options project_warnings)
 
 ###
 # Unit tests
@@ -109,20 +116,20 @@ add_executable(unittest
   unittest/vec2.cpp
 )
 target_include_directories(unittest PRIVATE "include")
-target_link_libraries(unittest PUBLIC catch2 PRIVATE ParticleSystem project_options project_warnings)
+target_link_libraries(unittest PUBLIC catch2 PRIVATE particlesystem project_options project_warnings)
 
 ###
 # Application
 ###
-add_executable(Application
+add_executable(application
   src/main.cpp
 )
 
-target_include_directories(Application PRIVATE "include")
-target_link_libraries(Application PUBLIC tracy PRIVATE ParticleSystem project_options project_warnings)
+target_include_directories(application PRIVATE "include")
+target_link_libraries(application PUBLIC tracy PRIVATE particlesystem rendering project_options project_warnings)
 
 if(MSVC)
-    set_property(DIRECTORY PROPERTY VS_STARTUP_PROJECT Application)
+    set_property(DIRECTORY PROPERTY VS_STARTUP_PROJECT application)
 endif()
 
 

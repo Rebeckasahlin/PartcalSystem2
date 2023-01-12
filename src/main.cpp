@@ -1,6 +1,6 @@
 #include "Tracy.hpp"
-#include "particlesystem.h"
-#include "util/rendering.h"
+#include "rendering/window.h"
+#include "particlesystem/particlesystem.h"
 
 #include <cmath>
 #include <cstdlib>
@@ -8,7 +8,7 @@
 // Simple random functions to get started
 // Random float (0,1)
 float rnd() {
-    return rand() / (float)(RAND_MAX);
+    return rand() / static_cast<float>(RAND_MAX);
 }
 
 // Random float (-1,1)
@@ -18,8 +18,6 @@ float srnd() {
 
 int main(int, char**) {
     rendering::createWindow();
-
-    ParticleSystem particleSystem;
 
     // --- EXAMPLE SNIPPET ---
     // Create some particle render info which is a simple struct that contains all visual properties used to render particles.
