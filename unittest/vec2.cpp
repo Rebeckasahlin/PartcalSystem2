@@ -1,5 +1,5 @@
 #include "catch2.h"
-#include "util/vec2.h"
+#include "core/vec2.h"
 
 TEST_CASE("Constructor", "[vec2]") {
     {

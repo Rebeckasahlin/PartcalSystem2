@@ -2,8 +2,8 @@
 #include "rendering/window.h"
 #include "particlesystem/particlesystem.h"
 
-#include <cmath>
 #include <cstdlib>
+#include <vector>
 
 // Simple random functions to get started
 // Random float (0,1)
@@ -17,63 +17,73 @@ float srnd() {
 }
 
 int main(int, char**) {
-    rendering::createWindow();
+    rendering::Window window("Particle System v0.0.01 pre-release alpha", 850, 850);
 
     // --- EXAMPLE SNIPPET ---
-    // Create some particle render info which is a simple struct that contains all visual properties used to render particles.
-    // This is to exemplify the render[Particles/Emitters/Forces] functions
-    std::vector<rendering::ParticleInfo> particles(100);
-    for (rendering::ParticleInfo& particle : particles) {
-        particle.position = {srnd(), srnd()};     // Position between (-1,1) = Screen extent
-        particle.color = {rnd(), rnd(), rnd()};   // Color between (0-1) per channel
-        particle.radius = {1.0f + rnd() * 9.0f};  // Radius between (1.0-10.0)
+    const size_t num_particles = 1000;
+    std::vector<vec2> position(num_particles);
+    std::vector<float> size(num_particles);
+    std::vector<Color> color(num_particles);
+    std::vector<float> lifetime(num_particles);
+
+    for (size_t i = 0; i < num_particles; ++i) {
+        position[i] = {srnd(), srnd()};             // Position between (-1,1) = Screen extent
+        size[i]     = {1.0f + rnd() * 9.0f};        // Radius between (1.0-10.0)
+        color[i]    = {rnd(), rnd(), rnd(), 1.0f};  // Color between (0-1) per channel
+        lifetime[i] = {0.5f + 2.0f * rnd()};        // Lifetime between (0.5-2.5) seconds
     }
-    // --- END EXAMPLE SNIPPET ---
-
-    double t = 0.0;
+    
+    double prevTime = 0.0;
     float speed = 1.0f;
-    bool isRunning = true;
-    while (isRunning) {
-        const float dt = rendering::beginFrame();
-        t += dt;
+    bool running = true;
+    
+    while (running) {
+        window.beginFrame();
+        
+        double t = window.time();
+        double dt = t - prevTime;
+        prevTime = t;
 
-        particleSystem.update(dt * speed);
-        particleSystem.render();
-
-        // --- EXAMPLE SNIPPET ---
         // Create some global smooth rocking motion
-        const vec2 vel = vec2(static_cast<float>(std::cos(t * 0.5)), -static_cast<float>(std::abs(std::sin(t * 0.5)))) * 0.2f;
-        for (rendering::ParticleInfo& particle : particles) {
+        const vec2 vel = vec2(static_cast<float>(std::cos(t)), -static_cast<float>(std::abs(std::sin(t)))) * 0.2f;
+
+        // Uupdate particles
+        for (size_t i = 0; i < num_particles; ++i) {
             // Apply per particle jitter
             const vec2 jitter = vec2(srnd(), srnd()) * 1.0f;
-            particle.position += (vel + jitter) * dt * speed;
-            // Check against extent of screen
-            if (particle.position.x < -1 || particle.position.x > 1 ||
-                particle.position.y < -1 || particle.position.y > 1) {
-                // Reset particle if outside
-                particle.position = { srnd(), srnd() };
-                particle.color = { rnd(), rnd(), rnd() };
-                particle.radius = { 1.0f + rnd() * 9.0f };
-            }
-        }
-        rendering::renderParticles(particles);
-        // --- END EXAMPLE SNIPPET ---
+            position[i] += (vel + jitter) * dt * speed;
+            lifetime[i] -= dt;
 
+            // Check against extent of screen or lifetime
+            if (lifetime[i] < 0.0f) {
+                // Respawn particle
+                position[i] = { srnd(), srnd() };
+                color[i]    = { rnd(), rnd(), rnd(), 1.0f};
+                size[i]     = { 1.0f + rnd() * 9.0f };
+                lifetime[i] = {0.5f + 2.0f * rnd()};
+            }
+
+        }
+
+        window.clear({0,0,0,1});
+
+        // Draw particles
+        window.drawPoints(position, size, color);
+
+        // UI
         {
-            ui::GuiScope ui;  // Initiates and finalizes UI rendering upon
-                              // construction/destruction
-            // @TODO: Replace this example code with your own UI elements
-            ui::text("I'm text!");
-            ui::sliderFloat("Simulation speed", speed, 0.001f, 10.0f);
-            if (ui::button("Close application")) {
-                isRunning = false;
+            window.beginGuiWindow("UI");
+            window.text("I'm text!");
+            window.sliderFloat("Simulation speed", speed, 0.001f, 10.0f);
+            if (window.button("Close application")) {
+                running = false;
             }
+            window.endGuiWindow();
         }
 
-        isRunning &= rendering::endFrame();
+        window.endFrame();
+        running = running && !window.shouldClose();
     }
-
-    rendering::destroyWindow();
 
     return EXIT_SUCCESS;
 }
