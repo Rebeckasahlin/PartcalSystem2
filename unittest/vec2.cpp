@@ -1,5 +1,7 @@
-#include "catch2.h"
-#include "core/vec2.h"
+#include <catch2/catch_all.hpp>
+#include <glm/glm.hpp>
+
+using vec2 = glm::vec2;
 
 TEST_CASE("Constructor", "[vec2]") {
     {
@@ -18,7 +20,7 @@ TEST_CASE("Constructor", "[vec2]") {
 
     {
         // Braced initialize
-        vec2 v{ 1.f, 2.f };
+        vec2 v{1.f, 2.f};
         REQUIRE(v.x == 1.f);
         REQUIRE(v.y == 2.f);
     }
@@ -198,17 +200,17 @@ TEST_CASE("Division", "[vec2]") {
 
 TEST_CASE("Length", "[vec2]") {
     vec2 v(1.f, 2.f);
-    REQUIRE(v.length() == Approx(std::sqrt(5.f)));
+    REQUIRE(v.length() == Catch::Approx(std::sqrt(5.f)));
 
     vec2 w(5.f, 25.f);
-    REQUIRE(w.length() == Approx(std::sqrt(650.f)));
+    REQUIRE(w.length() == Catch::Approx(std::sqrt(650.f)));
 }
 
 TEST_CASE("Normalize", "[vec2]") {
     vec2 v(1.f, 2.f);
-    vec2 vn = v.normalized();
+    vec2 vn = glm::normalize(v);
 
-    REQUIRE(vn.x == Approx(v.x / v.length()));
-    REQUIRE(vn.y == Approx(v.y / v.length()));
-    REQUIRE(vn.length() == Approx(1.f));
+    REQUIRE(vn.x == Catch::Approx(v.x / v.length()));
+    REQUIRE(vn.y == Catch::Approx(v.y / v.length()));
+    REQUIRE(vn.length() == Catch::Approx(1.f));
 }

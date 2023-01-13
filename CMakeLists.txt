@@ -1,144 +1,141 @@
-cmake_minimum_required(VERSION 3.10 FATAL_ERROR)
+cmake_minimum_required(VERSION 3.21...3.25 FATAL_ERROR)
 
-project(TNM094)
+project(particlesystem LANGUAGES CXX)
+
+set(CMAKE_DISABLE_SOURCE_CHANGES ON)
+set(CMAKE_DISABLE_IN_SOURCE_BUILD ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_STANDARD 20)
+
 set_property(GLOBAL PROPERTY USE_FOLDERS ON)
 set_property(GLOBAL PROPERTY PREDEFINED_TARGETS_FOLDER CMake)
-set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/bin)
 
-add_library(project_options INTERFACE)
-target_compile_features(project_options INTERFACE cxx_std_20)
+set(CMAKE_XCODE_SCHEME_ADDRESS_SANITIZER_USE_AFTER_RETURN ON)
+set(CMAKE_XCODE_SCHEME_ADDRESS_SANITIZER ON)
+set(CMAKE_XCODE_SCHEME_MAIN_THREAD_CHECKER_STOP ON)
+set(CMAKE_XCODE_SCHEME_UNDEFINED_BEHAVIOUR_SANITIZER ON)
+set(CMAKE_XCODE_SCHEME_UNDEFINED_BEHAVIOUR_SANITIZER_STOP ON)
 
 add_library(project_warnings INTERFACE)
-if (WIN32)
-  target_compile_options(project_warnings INTERFACE "/W4")
-else ()
-  target_compile_options(project_warnings INTERFACE "-Wall")
-endif ()
+target_compile_options(project_warnings INTERFACE 
+  $<$<CXX_COMPILER_ID:MSVC>:
+    /W4                 # Enable the highest warning level
+    /w44388             # eneble 'signed/unsigned mismatch' '(off by default)
+    /we4715             # turn 'not all control paths return a value' into a compile error
+    /permissive-        # Stick to the standard
+    >
+  $<$<CXX_COMPILER_ID:AppleClang,Clang,GNU>:
+    -Wall               # Enable the highest warning level
+    -Wextra 
+    -Wconversion
+    >
+)
 
+add_library(project_sanitize INTERFACE)
+target_compile_options(project_sanitize INTERFACE 
+  # Enable the Address Sanatizer, helps finding bugs at runtime
+  $<$<CXX_COMPILER_ID:MSVC>:/fsanitize=address>
+  $<$<CXX_COMPILER_ID:AppleClang,Clang,GNU>:-fsanitize=address>
+)
+target_link_options(project_sanitize INTERFACE $<$<CXX_COMPILER_ID:AppleClang,Clang,GNU>:-fsanitize=address>)
 
-###
 # External libraries
-###
-#
-# Tracy
-#
-option(TRACY_ENABLE "Enable Tracy Profiler")
-add_library(tracy
-  ext/tracy/TracyClient.cpp
-)
-target_include_directories(tracy PUBLIC ext/tracy)
-if (WIN32)
-  target_compile_options(tracy PRIVATE "/W0")
-else ()
-  target_compile_options(tracy PRIVATE "-w")
-endif ()
-target_link_libraries(tracy PRIVATE project_options)
-if (TRACY_ENABLE)
-  target_compile_definitions(tracy PUBLIC "TRACY_ENABLE")
-endif ()
-set_property(TARGET tracy PROPERTY FOLDER "External")
+find_package(Catch2 CONFIG REQUIRED)
+find_package(fmt CONFIG REQUIRED)
+find_package(glad CONFIG REQUIRED)
+find_package(glfw3 CONFIG REQUIRED)
+find_package(glm CONFIG REQUIRED)
+find_package(imgui CONFIG REQUIRED)
+find_package(Threads REQUIRED)
+find_package(Tracy CONFIG REQUIRED)
 
-#
-# Catch 2 for unit testing
-#
-add_library(catch2 INTERFACE)
-target_include_directories(catch2 INTERFACE ext/catch2)
-
-#
-# GLFW
-#
-set(GLFW_BUILD_DOCS OFF CACHE BOOL "" FORCE)
-set(GLFW_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
-set(GLFW_BUILD_TESTS OFF CACHE BOOL "" FORCE)
-set(GLFW_INSTALL OFF CACHE BOOL "" FORCE)
-add_subdirectory(ext/glfw)
-set_property(TARGET glfw PROPERTY FOLDER "External")
-
-#
-# ImGUI
-#
-add_library(imgui
-  ext/imgui/imgui.cpp
-  ext/imgui/imgui_demo.cpp
-  ext/imgui/imgui_draw.cpp
-  ext/imgui/imgui_widgets.cpp
-  ext/imgui/imgui_impl_glfw.cpp
-  ext/imgui/imgui_impl_opengl3.cpp
-)
-target_include_directories(imgui PUBLIC ext/imgui)
-target_link_libraries(imgui PUBLIC glfw PRIVATE glad)
-target_compile_definitions(imgui PRIVATE "IMGUI_IMPL_OPENGL_LOADER_GLAD")
-set_property(TARGET imgui PROPERTY FOLDER "External")
-
-#
-# GLAD
-#
-add_library(glad ext/glad/src/glad.c)
-target_include_directories(glad PUBLIC ext/glad/include)
-set_property(TARGET glad PROPERTY FOLDER "External")
-
-###
 # Rendering
-###
-add_library(rendering include/rendering/window.h src/rendering/window.cpp)
+set(RENDERING_HEADER_FILES include/rendering/window.h)
+set(RENDERING_SOURCE_FILES src/rendering/window.cpp)
+add_library(rendering ${RENDERING_HEADER_FILES} ${RENDERING_SOURCE_FILES})
+add_library(rendering::rendering ALIAS rendering)
+source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR}/include/rendering FILES ${RENDERING_HEADER_FILES})
+source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR}/src/rendering FILES ${RENDERING_SOURCE_FILES})
 target_include_directories(rendering PRIVATE "include")
-target_link_libraries(rendering PUBLIC tracy PRIVATE glad glfw imgui project_options project_warnings)
+target_link_libraries(rendering 
+  PUBLIC 
+    Tracy::TracyClient 
+    glm::glm
+    fmt::fmt 
+    project_warnings
+    project_sanitize
+  PRIVATE 
+    glad::glad 
+    glfw
+    imgui::imgui 
+)
 
-###
 # Particle System Library
-###
-
-# ADD HEADER FILES HERE
 set(HEADER_FILES
   include/particlesystem/particlesystem.h
+  # ADD HEADER FILES HERE
 )
-
-# ADD SOURCE FILES HERE
 set(SOURCE_FILES
   src/particlesystem/particlesystem.cpp
+  # ADD SOURCE FILES HERE
 )
 
-add_library(particlesystem
-  ${SOURCE_FILES}
-  ${HEADER_FILES}
+add_library(particlesystem ${SOURCE_FILES} ${HEADER_FILES})
+add_library(particlesystem::particlesystem ALIAS particlesystem)
+source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR}/include/particlesystem FILES ${HEADER_FILES})
+source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR}/src/particlesystem FILES ${SOURCE_FILES})
+target_include_directories(particlesystem PUBLIC "include")
+target_link_libraries(particlesystem 
+  PUBLIC 
+    Tracy::TracyClient 
+    project_warnings
+    project_sanitize
 )
 
-source_group("Header Files" FILES ${HEADER_FILES})
-target_include_directories(particlesystem PRIVATE "include")
-target_link_libraries(particlesystem PUBLIC tracy PRIVATE project_options project_warnings)
-
-###
 # Unit tests
-###
-add_executable(unittest
-  unittest/main.cpp
-  unittest/othertests.cpp
+set(TEST_FILES
   unittest/vec2.cpp
+  unittest/othertests.cpp
+  # ADD TEST FILES HERE
 )
-target_include_directories(unittest PRIVATE "include")
-target_link_libraries(unittest PUBLIC catch2 PRIVATE particlesystem project_options project_warnings)
+add_executable(unittest ${TEST_FILES})
+source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR}/unittest FILES ${TEST_FILES})
+target_include_directories(unittest PUBLIC "include")
+target_link_libraries(unittest 
+  PUBLIC 
+    Catch2::Catch2WithMain 
+    particlesystem::particlesystem 
+    project_warnings
+    project_sanitize
+)
 
-###
 # Application
-###
-add_executable(application
-  src/main.cpp
+set(APP_HEADER_FILES
+  # ADD APP HEADER FILES HERE
+)
+set(APP_SOURCE_FILES
+  src/application/main.cpp
+  # ADD APP SOURCE FILES HERE
 )
 
-target_include_directories(application PRIVATE "include")
-target_link_libraries(application PUBLIC tracy PRIVATE particlesystem rendering project_options project_warnings)
+add_executable(application ${APP_SOURCE_FILES} ${APP_HEADER_FILES})
+source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR}/include/application FILES ${APP_HEADER_FILES})
+source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR}/src/application FILES ${APP_SOURCE_FILES})
+target_include_directories(application PUBLIC "include")
+target_link_libraries(application
+  PRIVATE 
+    particlesystem::particlesystem
+    rendering::rendering
+    Tracy::TracyClient 
+    project_warnings
+    project_sanitize
+)
 
 if(MSVC)
-    set_property(DIRECTORY PROPERTY VS_STARTUP_PROJECT application)
+  set_property(DIRECTORY PROPERTY VS_STARTUP_PROJECT application)
+elseif("${CMAKE_CXX_COMPILER_ID}" STREQUAL "AppleClang") 
+  set_target_properties(application unittest PROPERTIES XCODE_GENERATE_SCHEME YES)
 endif()
 
 
-if (EXISTS "${PROJECT_SOURCE_DIR}/solution")
-  add_executable(solution
-    solution/main.cpp
-    solution/particlesystem.cpp
-    src/util/rendering.cpp
-  )
-  target_include_directories(solution PRIVATE "include" "solution")
-  target_link_libraries(solution PUBLIC tracy PRIVATE glad glfw imgui project_options project_warnings)
-endif ()

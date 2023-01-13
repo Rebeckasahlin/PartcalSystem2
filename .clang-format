@@ -1,5 +1,3 @@
-#clang-format configuration
-
 BasedOnStyle: Google
 Standard: Cpp11
 IndentWidth: 4
@@ -10,6 +8,5 @@ SortUsingDeclarations: false
 BreakConstructorInitializers : BeforeComma
 BreakConstructorInitializersBeforeComma: true
 KeepEmptyLinesAtTheStartOfBlocks: true
-# AllowShortCaseLabelsOnASingleLine: true
 DerivePointerAlignment: false
 PointerAlignment: Left

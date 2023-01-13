@@ -1,17 +1,20 @@
-#include "rendering/window.h"
+#include <rendering/window.h>
 
-#include "glad/glad.h"
-#include <GLFW/glfw3.h>
-#include "imgui.h"
-#include "imgui_impl_glfw.h"
-#include "imgui_impl_opengl3.h"
-#include "Tracy.hpp"
 #include <array>
-#include <assert.h>
-#include <iostream>
+#include <cassert>
 #include <string>
 #include <vector>
 #include <algorithm>
+
+#include <glad/glad.h>
+#include <GLFW/glfw3.h>
+#include <imgui.h>
+#include <imgui_impl_glfw.h>
+#include <imgui_impl_opengl3.h>
+#include <tracy/Tracy.hpp>
+#include <fmt/format.h>
+
+#include <glm/common.hpp>
 
 // Dear students;
 // if you have found your way here, rest assured that understanding the rest of this file
@@ -21,7 +24,7 @@
 // all documented so that looking at the source code should not be necessary.
 // Having said that, if you are interested in anything, of course continue browsing here
 
-constexpr size_t VBO_CAP = 1024*1024;
+constexpr size_t VBO_CAP = 1024 * 1024;
 
 // Internal definition of window implementation
 struct rendering::Window::Impl {
@@ -29,16 +32,18 @@ struct rendering::Window::Impl {
     ~Impl();
 
     GLFWwindow* window;
-    
+
     GLuint program;
     GLuint vao;
     GLuint vbo;
 };
 
+namespace {
+
 // This structure represents how the points is stored in the vertex buffer
 struct Point {
-    vec2     position;
-    float    scale;
+    glm::vec2 position;
+    float scale;
     uint32_t color_packed;
 };
 
@@ -58,10 +63,8 @@ struct Point {
  * \pre \p name must not be empty
  * \post Only the compile status of \p shader might be modified
  */
-static bool checkShader([[ maybe_unused ]] GLuint shader,
-                 [[ maybe_unused ]] std::string_view name)
-{
-    ZoneScoped
+bool checkShader([[maybe_unused]] GLuint shader, [[maybe_unused]] std::string_view name) {
+    ZoneScoped;
 
     assert(shader != 0);
     assert(!name.empty());
@@ -72,10 +75,10 @@ static bool checkShader([[ maybe_unused ]] GLuint shader,
         GLint logLength = 0;
         glGetShaderiv(shader, GL_INFO_LOG_LENGTH, &logLength);
         std::vector<char> buf;
-        buf.resize(logLength);
+        buf.resize(static_cast<size_t>(logLength));
         glGetShaderInfoLog(shader, logLength, NULL, buf.data());
 
-        std::cout << "Error compiling shader: " << name << '\n' << std::string(buf.data());
+        fmt::print("Error compiling shader: {}\n{}", name, buf.data());
     }
 
     return status == GL_TRUE;
@@ -97,10 +100,8 @@ static bool checkShader([[ maybe_unused ]] GLuint shader,
  * \pre \p name must not be empty
  * \post Only the link status of \p program might be modified
  */
-static bool checkProgram([[ maybe_unused ]] GLuint program,
-                  [[ maybe_unused ]] std::string_view name)
-{
-    ZoneScoped
+bool checkProgram([[maybe_unused]] GLuint program, [[maybe_unused]] std::string_view name) {
+    ZoneScoped;
 
     assert(program != 0);
     assert(!name.empty());
@@ -111,44 +112,39 @@ static bool checkProgram([[ maybe_unused ]] GLuint program,
         GLint logLength = 0;
         glGetProgramiv(program, GL_INFO_LOG_LENGTH, &logLength);
         std::vector<char> buf;
-        buf.resize(logLength);
+        buf.resize(static_cast<size_t>(logLength));
         glGetProgramInfoLog(program, logLength, NULL, buf.data());
 
-        std::cout << "Error linking program: " << name << '\n' << std::string(buf.data());
+        fmt::print("Error linking program: {}\n{}", name, buf.data());
     }
 
     return status == GL_TRUE;
 }
 
-
 /**
  * Checks whether any of the GL functions called since the last call to this function have
  * raised any errors. If there were multiple errors, only the first error will be printed.
- * If there haven't been any errors, no message is printed. If this function was compiled
- * in a release build, all error messages are omitted.
+ * If there haven't been any errors, no message is printed.
  *
  * \param name The human-readable name that is used in the logging
  *
  * \throw std::runtime_error An exception is raised if there was an OpenGL error
  *
  * \pre \p name must not be empty
- * \post If compiling this function in Debug mode, the OpenGL error will be GL_NO_ERROR
+ * \post The OpenGL error will be GL_NO_ERROR
  */
-static void checkOpenGLError([[ maybe_unused ]] std::string_view name) {
-#ifdef _DEBUG
+void checkOpenGLError([[maybe_unused]] std::string_view name) {
     GLenum e = glGetError();
     if (e != GL_NO_ERROR) {
-        std::cout << "OpenGL error occurred( " << name << ") " << e << '\n';
-        throw std::runtime_error("OpenGL error occurred");
+        throw std::runtime_error(fmt::format("OpenGL error occurred ({}) {}", name, e));
     }
-#endif // _DEBUG
 }
 
 // Creates the shader program for points.
-static GLuint createPointProgram() {
-    ZoneScoped
+GLuint createPointProgram() {
+    ZoneScoped;
 
-    constexpr const char* vsSrc[1] = { R"(
+    constexpr const char* vsSrc[1] = {R"(
         #version 330
         layout(location = 0) in vec2  in_position;
         layout(location = 1) in float in_scale;
@@ -161,9 +157,9 @@ static GLuint createPointProgram() {
             gl_PointSize = in_scale;
             gl_Position = vec4(in_position, 0.0, 1.0);
         }
-    )" };
+    )"};
 
-    constexpr const char* fsSrc[1] = { R"(
+    constexpr const char* fsSrc[1] = {R"(
         #version 330
         in vec4 vs_color;
         out vec4 out_color;
@@ -171,8 +167,8 @@ static GLuint createPointProgram() {
         void main() {
             out_color = vec4(vs_color);
         }
-    )" };
-    
+    )"};
+
     GLuint vertex = glCreateShader(GL_VERTEX_SHADER);
     glShaderSource(vertex, 1, vsSrc, nullptr);
     glCompileShader(vertex);
@@ -184,30 +180,36 @@ static GLuint createPointProgram() {
     GLuint program = 0;
     if (checkShader(vertex, "point-vertex") && checkShader(fragment, "point-fragment")) {
         program = glCreateProgram();
-        
+
         glAttachShader(program, vertex);
         glAttachShader(program, fragment);
-        
+
         glLinkProgram(program);
         checkProgram(program, "point-program");
 
         glDetachShader(program, vertex);
         glDetachShader(program, fragment);
     }
-    
+
     glDeleteShader(vertex);
     glDeleteShader(fragment);
 
     return program;
 }
 
+}  // namespace
+
 namespace rendering {
 
-Window::Impl::Impl(std::string_view, int width, int height) {
-    ZoneScoped
+Window::Impl::Impl(std::string_view, int width, int height)
+    : window{nullptr}, program{0}, vao{0}, vbo{0} {
+
+    ZoneScoped;
 
     // Initialize GLFW for window handling
-    glfwInit();
+    if (glfwInit() != GLFW_TRUE) {
+        throw std::runtime_error("Unable to initialize GLFW");
+    }
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
     glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GLFW_TRUE);
@@ -215,7 +217,7 @@ Window::Impl::Impl(std::string_view, int width, int height) {
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
     window = glfwCreateWindow(width, height, "Particle System", nullptr, nullptr);
     glfwMakeContextCurrent(window);
-    glfwSwapInterval(0);    
+    glfwSwapInterval(0);
 
     // Initialize the GLAD OpenGL wrapper
     gladLoadGLLoader(reinterpret_cast<GLADloadproc>(glfwGetProcAddress));
@@ -245,7 +247,7 @@ Window::Impl::Impl(std::string_view, int width, int height) {
     // Setup vertex attribute pointers for Points
     glBindVertexArray(vao);
     glBindBuffer(GL_ARRAY_BUFFER, vbo);
-    
+
     glEnableVertexAttribArray(0);
     glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 0, nullptr);
 
@@ -256,12 +258,12 @@ Window::Impl::Impl(std::string_view, int width, int height) {
     glVertexAttribPointer(2, 4, GL_UNSIGNED_BYTE, GL_TRUE, 0, nullptr);
 
     glBindVertexArray(0);
- 
+
     checkOpenGLError("postInit");
 }
 
 Window::Impl::~Impl() {
-    ZoneScoped
+    ZoneScoped;
 
     glDeleteProgram(program);
     glDeleteVertexArrays(1, &vao);
@@ -277,26 +279,23 @@ Window::Impl::~Impl() {
     glfwTerminate();
 }
 
-Window::Window(std::string_view title, int width, int height) : impl(new Impl(title, width, height)) {}
+Window::Window(std::string_view title, int width, int height)
+    : impl(new Impl(title, width, height)) {}
 
 Window::~Window() {}
 
-void Window::clear(Color color) {
+void Window::clear(glm::vec4 color) {
     // Clear the rendering buffer with the selected background color
     glClearColor(color.r, color.g, color.b, color.a);
     glClear(GL_COLOR_BUFFER_BIT);
 }
 
-double Window::time() const {
-    return glfwGetTime();
-}
+double Window::time() const { return glfwGetTime(); }
 
-bool Window::shouldClose() const {
-    return glfwWindowShouldClose(impl->window);
-}
+bool Window::shouldClose() const { return glfwWindowShouldClose(impl->window); }
 
 void Window::beginFrame() {
-    ZoneScoped
+    ZoneScoped;
     checkOpenGLError("beginFrame");
 
     // Query the events from the operating system, such as input from mouse or keyboards
@@ -321,34 +320,36 @@ void Window::beginFrame() {
     ImGui::NewFrame();
 }
 
-void Window::drawPoint(vec2 pos, float radius, Color color) {
+void Window::drawPoint(glm::vec2 pos, float radius, glm::vec4 color) {
     drawPoints(&pos, &radius, &color, 1);
 }
 
-void Window::drawPoints(std::span<const vec2> pos, std::span<const float> radius, std::span<const Color> color) {
+void Window::drawPoints(std::span<const glm::vec2> pos, std::span<const float> radius,
+                        std::span<const glm::vec4> color) {
     const size_t count = pos.size();
     assert(count == radius.size() && count == color.size());
     drawPoints(pos.data(), radius.data(), color.data(), count);
 }
 
-static constexpr inline uint32_t packColor(Color color) {
+static constexpr inline uint32_t packColor(glm::vec4 color) {
     unsigned int out = 0;
-    out |= ((unsigned int)(std::clamp(color.r, 0.0f, 1.0f) * 255.0f + 0.5f)) << 0;
-    out |= ((unsigned int)(std::clamp(color.g, 0.0f, 1.0f) * 255.0f + 0.5f)) << 8;
-    out |= ((unsigned int)(std::clamp(color.b, 0.0f, 1.0f) * 255.0f + 0.5f)) << 16;
-    out |= ((unsigned int)(std::clamp(color.a, 0.0f, 1.0f) * 255.0f + 0.5f)) << 24;
+    out |= (static_cast<unsigned int>(std::clamp(color.r, 0.0f, 1.0f) * 255.0f + 0.5f)) << 0;
+    out |= (static_cast<unsigned int>(std::clamp(color.g, 0.0f, 1.0f) * 255.0f + 0.5f)) << 8;
+    out |= (static_cast<unsigned int>(std::clamp(color.b, 0.0f, 1.0f) * 255.0f + 0.5f)) << 16;
+    out |= (static_cast<unsigned int>(std::clamp(color.a, 0.0f, 1.0f) * 255.0f + 0.5f)) << 24;
     return out;
 }
 
-void Window::drawPoints(const vec2* pos, const float* radius, const Color* color, size_t count, size_t stride_in_bytes) {
-    ZoneScoped
+void Window::drawPoints(const glm::vec2* pos, const float* radius, const glm::vec4* color,
+                        size_t count, size_t stride_in_bytes) {
+    ZoneScoped;
     // Plot the number of points and make them available through Tracy
     TracyPlot("Points", int64_t(count));
-    
+
     if (count > VBO_CAP) {
         throw std::runtime_error("Too many rectangles to draw in a single call");
     }
-        
+
     // Upload the passed particle information to the GPU
     glBindBuffer(GL_ARRAY_BUFFER, impl->vbo);
     Point* point_data = static_cast<Point*>(glMapBuffer(GL_ARRAY_BUFFER, GL_WRITE_ONLY));
@@ -360,8 +361,7 @@ void Window::drawPoints(const vec2* pos, const float* radius, const Color* color
     } else {
         throw std::runtime_error("Failed to map buffer");
     }
-    
-    
+
     glBindVertexArray(impl->vao);
     glUseProgram(impl->program);
     glDrawArrays(GL_POINTS, 0, static_cast<int>(count));
@@ -371,12 +371,11 @@ void Window::drawPoints(const vec2* pos, const float* radius, const Color* color
     checkOpenGLError("drawPoint");
 }
 
-
 void Window::endFrame() {
-    ZoneScoped
+    ZoneScoped;
 
     {
-        ZoneScopedN("Render UI")
+        ZoneScopedN("Render UI");
         ImGui::Render();
         ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
     }
@@ -385,82 +384,86 @@ void Window::endFrame() {
         // Swapping the front and back buffer. Since we are doing v-sync is enabled, this
         // call will block until its our turn to swap the buffers (usually every 16.6 ms
         // on a 60 Hz monitor
-        ZoneScopedN("Swap buffers")
+        ZoneScopedN("Swap buffers");
         glfwSwapBuffers(impl->window);
     }
 
     checkOpenGLError("endFrame");
-    FrameMark
+    FrameMark;
 }
-
-// @TODO: PETER: Touch this up with a scalable solution which puts it on the heap if it does not fit
 
 // Copy string_views into a zero terminated stack based string which is compatible with ImGui
 // That is implicitly convertible to c-style strings (const char*)
 struct CStr {
-    std::array<char, 128> buf;
+    static constexpr size_t BufferSize = 128;
 
-    constexpr CStr(std::string_view str) {
-        const size_t size = std::min(str.size(), buf.size() - 1);
-        std::copy_n(str.data(), size, buf.data());
-        buf[size] = '\0';
+    CStr(const std::string_view sv) {
+        if (sv.size() < BufferSize - 1) {
+            std::memcpy(stack.data(), sv.data(), sv.size());
+            stack[sv.size()] = 0;
+            heap = nullptr;
+        } else {
+            heap = std::make_unique<char[]>(sv.size() + 1);
+            std::memcpy(heap.get(), sv.data(), sv.size());
+            heap[sv.size()] = 0;
+        }
     }
 
-    constexpr operator const char*() const {
-        return buf.data();
-    }
+    const char* c_str() const { return heap ? heap.get() : stack.data(); }
+    operator const char*() const { return heap ? heap.get() : stack.data(); }
+
+private:
+    std::array<char, BufferSize> stack;  // Do not initialize!
+    std::unique_ptr<char[]> heap;
 };
 
-void Window::beginGuiWindow(std::string_view label) {
-    ImGui::Begin(CStr(label));
-}
+void Window::beginGuiWindow(std::string_view label) { ImGui::Begin(CStr(label)); }
 
-void Window::endGuiWindow() {
-    ImGui::End();
-}
+void Window::endGuiWindow() { ImGui::End(); }
 
 void Window::text(std::string_view text) {
-    ZoneScoped
-    ImGui::Text(CStr(text));
+    ZoneScoped;
+    ImGui::Text("%s", CStr{text}.c_str());
 }
 
-void Window::text(std::string_view text, Color color) {
-    ZoneScoped
-    ImGui::TextColored({color.r, color.g, color.b, 1.0f}, CStr(text));
+void Window::text(std::string_view text, glm::vec4 color) {
+    ZoneScoped;
+    ImGui::TextColored({color.r, color.g, color.b, 1.0f}, "%s", CStr{text}.c_str());
 }
 
 bool Window::sliderFloat(std::string_view label, float& value, float minValue, float maxValue) {
-    ZoneScoped
+    ZoneScoped;
     return ImGui::SliderFloat(CStr(label), &value, minValue, maxValue);
 }
 
 bool Window::sliderInt(std::string_view label, int& value, int minValue, int maxValue) {
-    ZoneScoped
+    ZoneScoped;
     return ImGui::SliderInt(CStr(label), &value, minValue, maxValue);
 }
 
-bool Window::sliderVec2(std::string_view label, vec2& value, float minValue, float maxValue) {
-    ZoneScoped
+bool Window::sliderVec2(std::string_view label, glm::vec2& value, float minValue, float maxValue) {
+    ZoneScoped;
     const float speed = (maxValue - minValue) / 2000.f;
     return ImGui::DragFloat2(CStr(label), &value.x, speed, minValue, maxValue);
 }
 
-bool Window::colorPicker(std::string_view label, Color& color) {
-    ZoneScoped
+bool Window::colorPicker(std::string_view label, glm::vec4& color) {
+    ZoneScoped;
     return ImGui::ColorEdit3(CStr(label), &color.r);
 }
 
 bool Window::button(std::string_view label) {
-    ZoneScoped
+    ZoneScoped;
     return ImGui::Button(CStr(label));
 }
 
 bool Window::checkbox(std::string_view label, bool& value) {
-    ZoneScoped
+    ZoneScoped;
     return ImGui::Checkbox(CStr(label), &value);
 }
 
 void Window::separator() {
+    ZoneScoped;
     ImGui::Separator();
 }
 
