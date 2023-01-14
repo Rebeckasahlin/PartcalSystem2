@@ -2,6 +2,7 @@ cmake_minimum_required(VERSION 3.21...3.25 FATAL_ERROR)
 
 project(particlesystem LANGUAGES CXX)
 
+enable_testing()
 set(CMAKE_DISABLE_SOURCE_CHANGES ON)
 set(CMAKE_DISABLE_IN_SOURCE_BUILD ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
@@ -109,6 +110,7 @@ target_link_libraries(unittest
     project_warnings
     project_sanitize
 )
+add_test(NAME unittest COMMAND $<TARGET_FILE:unittest>)
 
 # Application
 set(APP_HEADER_FILES
