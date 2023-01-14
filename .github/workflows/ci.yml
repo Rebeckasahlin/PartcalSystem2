@@ -1,0 +1,36 @@
+name: CMake
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        os: [windows-latest, macos-latest, ubuntu-latest]
+
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+
+    steps:
+    - name: Clone VCPKG
+      uses: actions/checkout@v3
+      with:
+        repository: 'microsoft/vcpkg'
+        fetch-depth: 0
+        path: 'vcpkg'
+    
+    - name: Clone repo
+      uses: actions/checkout@v3
+
+    - name: Configure CMake
+      shell: bash
+      run: cmake -S inviwo --preset ninja -DCMAKE_BUILD_TYPE=Debug
+
+    - name: Build
+      run: cmake --preset ninja
+
+    - name: Test
+      run: ctest --preset ninja
