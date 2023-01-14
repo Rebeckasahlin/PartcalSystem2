@@ -33,13 +33,14 @@ target_compile_options(project_warnings INTERFACE
     >
 )
 
+# Enable the Address Sanatizer, helps finding bugs at runtime
 add_library(project_sanitize INTERFACE)
 target_compile_options(project_sanitize INTERFACE 
-  # Enable the Address Sanatizer, helps finding bugs at runtime
-  $<$<CXX_COMPILER_ID:MSVC>:/fsanitize=address>
   $<$<CXX_COMPILER_ID:AppleClang,Clang,GNU>:-fsanitize=address>
 )
-target_link_options(project_sanitize INTERFACE $<$<CXX_COMPILER_ID:AppleClang,Clang,GNU>:-fsanitize=address>)
+target_link_options(project_sanitize INTERFACE 
+  $<$<CXX_COMPILER_ID:AppleClang,Clang,GNU>:-fsanitize=address>
+)
 
 # External libraries
 find_package(Catch2 CONFIG REQUIRED)

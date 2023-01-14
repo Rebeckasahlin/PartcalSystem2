@@ -21,7 +21,12 @@
         },
         {
             "name": "tracy",
-            "features" : ["gui-tools"]
+            "features" : ["gui-tools"],
+            "platform": "!linux"
+        },
+        {
+            "name": "tracy",
+            "platform": "linux"
         }
     ]
 }

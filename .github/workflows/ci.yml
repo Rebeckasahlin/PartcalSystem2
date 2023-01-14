@@ -10,7 +10,13 @@ jobs:
   build:
     strategy:
       matrix:
-        os: [windows-latest, macos-latest, ubuntu-latest]
+        include:
+          - os: windows-latest
+            preset: msvc
+          - os: macos-latest
+            preset: xcode
+          - os: ubuntu-latest
+            preset: ninja
       fail-fast: false
 
     runs-on: ${{ matrix.os }}
@@ -43,10 +49,20 @@ jobs:
 
     - name: Configure CMake
       shell: bash
-      run: cmake -S particlesystem --preset ninja -DCMAKE_BUILD_TYPE=Debug
+      run: cmake -S particlesystem --preset ${{ matrix.preset }} -DCMAKE_BUILD_TYPE=Debug
+
+    - name: Save Logs
+      uses: actions/upload-artifact@v3
+      if: ${{ failure() }}
+      with:
+        name: logs
+        retention-days: 5
+        path: |
+          vcpkg/buildtrees/**/*.log
+          vcpkg/buildtrees/**/*.txt
 
     - name: Build
-      run: cmake --build build
+      run: cmake --build build --config Debug
 
     - name: Test
-      run: ctest --test-dir build --verbose
+      run: ctest --test-dir build --verbose -C Debug

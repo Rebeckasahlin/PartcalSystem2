@@ -6,7 +6,7 @@ using vec2 = glm::vec2;
 TEST_CASE("Constructor", "[vec2]") {
     {
         // Default constructor
-        vec2 v;
+        vec2 v{};
         REQUIRE(v.x == 0.f);
         REQUIRE(v.y == 0.f);
     }
@@ -200,17 +200,17 @@ TEST_CASE("Division", "[vec2]") {
 
 TEST_CASE("Length", "[vec2]") {
     vec2 v(1.f, 2.f);
-    REQUIRE(v.length() == Catch::Approx(std::sqrt(5.f)));
+    REQUIRE(glm::length(v) == Catch::Approx(std::sqrt(5.f)));
 
     vec2 w(5.f, 25.f);
-    REQUIRE(w.length() == Catch::Approx(std::sqrt(650.f)));
+    REQUIRE(glm::length(w) == Catch::Approx(std::sqrt(650.f)));
 }
 
 TEST_CASE("Normalize", "[vec2]") {
     vec2 v(1.f, 2.f);
     vec2 vn = glm::normalize(v);
 
-    REQUIRE(vn.x == Catch::Approx(v.x / v.length()));
-    REQUIRE(vn.y == Catch::Approx(v.y / v.length()));
-    REQUIRE(vn.length() == Catch::Approx(1.f));
+    REQUIRE(vn.x == Catch::Approx(v.x / glm::length(v)));
+    REQUIRE(vn.y == Catch::Approx(v.y / glm::length(v)));
+    REQUIRE(glm::length(vn) == Catch::Approx(1.f));
 }
