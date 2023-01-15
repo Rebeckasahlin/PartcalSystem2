@@ -15,6 +15,7 @@
 #include <fmt/format.h>
 
 #include <glm/common.hpp>
+#include <glm/packing.hpp>
 
 // Dear students;
 // if you have found your way here, rest assured that understanding the rest of this file
@@ -249,13 +250,13 @@ Window::Impl::Impl(std::string_view, int width, int height)
     glBindBuffer(GL_ARRAY_BUFFER, vbo);
 
     glEnableVertexAttribArray(0);
-    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 0, nullptr);
+    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, sizeof(Point), reinterpret_cast<const void*>(offsetof(Point, position)));
 
     glEnableVertexAttribArray(1);
-    glVertexAttribPointer(1, 1, GL_FLOAT, GL_FALSE, 0, nullptr);
+    glVertexAttribPointer(1, 1, GL_FLOAT, GL_FALSE, sizeof(Point), reinterpret_cast<const void*>(offsetof(Point, scale)));
 
     glEnableVertexAttribArray(2);
-    glVertexAttribPointer(2, 4, GL_UNSIGNED_BYTE, GL_TRUE, 0, nullptr);
+    glVertexAttribPointer(2, 4, GL_UNSIGNED_BYTE, GL_TRUE, sizeof(Point), reinterpret_cast<const void*>(offsetof(Point, color_packed)));
 
     glBindVertexArray(0);
 
@@ -263,8 +264,6 @@ Window::Impl::Impl(std::string_view, int width, int height)
 }
 
 Window::Impl::~Impl() {
-    ZoneScoped;
-
     glDeleteProgram(program);
     glDeleteVertexArrays(1, &vao);
     glDeleteBuffers(1, &vbo);
@@ -331,16 +330,7 @@ void Window::drawPoints(std::span<const glm::vec2> pos, std::span<const float> r
     drawPoints(pos.data(), radius.data(), color.data(), count);
 }
 
-static constexpr inline uint32_t packColor(glm::vec4 color) {
-    unsigned int out = 0;
-    out |= (static_cast<unsigned int>(std::clamp(color.r, 0.0f, 1.0f) * 255.0f + 0.5f)) << 0;
-    out |= (static_cast<unsigned int>(std::clamp(color.g, 0.0f, 1.0f) * 255.0f + 0.5f)) << 8;
-    out |= (static_cast<unsigned int>(std::clamp(color.b, 0.0f, 1.0f) * 255.0f + 0.5f)) << 16;
-    out |= (static_cast<unsigned int>(std::clamp(color.a, 0.0f, 1.0f) * 255.0f + 0.5f)) << 24;
-    return out;
-}
-
-void Window::drawPoints(const glm::vec2* pos, const float* radius, const glm::vec4* color,
+void Window::drawPoints(const glm::vec2* pos_data, const float* rad_data, const glm::vec4* col_data,
                         size_t count, size_t stride_in_bytes) {
     ZoneScoped;
     // Plot the number of points and make them available through Tracy
@@ -350,12 +340,28 @@ void Window::drawPoints(const glm::vec2* pos, const float* radius, const glm::ve
         throw std::runtime_error("Too many rectangles to draw in a single call");
     }
 
+    if (stride_in_bytes > 0 && stride_in_bytes < sizeof(glm::vec4)) {
+        // The stride is smaller than the smallest data field, which signifies an error.
+        // We could check against sizeof(Point), which would be the smallest packed size of a full structure in theory.
+        // But the user could choose to alias some of the field and use color data for position as well for example.
+        throw std::runtime_error("Stride is smaller than the smallest data field");
+    }
+
     // Upload the passed particle information to the GPU
     glBindBuffer(GL_ARRAY_BUFFER, impl->vbo);
     Point* point_data = static_cast<Point*>(glMapBuffer(GL_ARRAY_BUFFER, GL_WRITE_ONLY));
     if (point_data) {
-        for (size_t i = 0; i < count; ++i) {
-            point_data[i] = {pos[i], radius[i], packColor(color[i])};
+        if (stride_in_bytes == 0) {
+            for (size_t i = 0; i < count; ++i) {
+                point_data[i] = {pos_data[i], rad_data[i], glm::packUnorm4x8(col_data[i])};
+            }
+        } else {
+            for (size_t i = 0; i < count; ++i) {
+                const glm::vec2* p = reinterpret_cast<const glm::vec2*>(reinterpret_cast<const char*>(pos_data) + i * stride_in_bytes);
+                const float*     r = reinterpret_cast<const float*>    (reinterpret_cast<const char*>(rad_data) + i * stride_in_bytes);
+                const glm::vec4* c = reinterpret_cast<const glm::vec4*>(reinterpret_cast<const char*>(col_data) + i * stride_in_bytes);
+                point_data[i] = {*p, *r, glm::packUnorm4x8(*c)};
+            }
         }
         glUnmapBuffer(GL_ARRAY_BUFFER);
     } else {
