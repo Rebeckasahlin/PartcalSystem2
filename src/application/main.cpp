@@ -28,7 +28,7 @@ int main(int, char**) try {
     for (size_t i = 0; i < num_particles; ++i) {
         position[i] = {srnd(), srnd()};          // Position between (-1,1) = Screen extent
         size[i] = {1.0f + rnd() * 9.0f};         // Radius between (1.0-10.0)
-        color[i] = {rnd(), rnd(), rnd(), 1.0f};  // Color between (0-1) per channel
+        color[i] = {rnd(), rnd(), rnd(), 0.5f};  // Color between (0-1) per channel, alpha = 0.5
         lifetime[i] = {0.5f + 2.0f * rnd()};     // Lifetime between (0.5-2.5) seconds
     }
 
@@ -39,8 +39,8 @@ int main(int, char**) try {
     while (running) {
         window.beginFrame();
 
-        const auto t = window.time();
-        const auto dt = static_cast<float>(t - prevTime);
+        const double t = window.time();
+        const float dt = static_cast<float>(t - prevTime);
         prevTime = t;
 
         // Create some global smooth rocking motion
@@ -50,11 +50,16 @@ int main(int, char**) try {
 
         {
             ZoneScopedN("Update particles");
+
+            // Simulation dt may differ from actual dt based on the simulation speed
+            const float sim_dt = dt * speed;
+
             for (size_t i = 0; i < num_particles; ++i) {
                 // Apply per particle jitter
                 const glm::vec2 jitter = glm::vec2(srnd(), srnd()) * 1.0f;
-                position[i] += (vel + jitter) * dt * speed;
-                lifetime[i] -= dt;
+                position[i] += (vel + jitter) * sim_dt;
+                color[i].a = std::min(color[i].a, lifetime[i]);  // Modify alpha based on lifetime
+                lifetime[i] -= sim_dt;
 
                 // Check against extent of screen or lifetime
                 if (lifetime[i] < 0.0f) {
@@ -76,7 +81,7 @@ int main(int, char**) try {
         {
             window.beginGuiWindow("UI");
             window.text("I'm text!");
-            window.sliderFloat("Simulation speed", speed, 0.001f, 10.0f);
+            window.sliderFloat("Speed", speed, 0.001f, 10.0f);
             if (window.button("Close application")) {
                 running = false;
             }
