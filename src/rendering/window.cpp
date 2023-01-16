@@ -27,7 +27,7 @@
 
 constexpr size_t VBO_CAP = 1024 * 1024;
 
-// Copy string_views into a zero terminated stack based string which is compatible with 
+// Copy string_views into a zero terminated stack based string which is compatible with
 // ImGui and other libraries that expect zero terminated strings
 struct CStr {
     static constexpr size_t BufferSize = 128;
@@ -89,7 +89,7 @@ struct Point {
  * \pre \p name must not be empty
  * \post Only the compile status of \p shader might be modified
  */
-bool checkShader([[maybe_unused]] GLuint shader, [[maybe_unused]] std::string_view name) {
+static bool checkShader([[maybe_unused]] GLuint shader, [[maybe_unused]] std::string_view name) {
     ZoneScoped;
 
     assert(shader != 0);
@@ -126,7 +126,7 @@ bool checkShader([[maybe_unused]] GLuint shader, [[maybe_unused]] std::string_vi
  * \pre \p name must not be empty
  * \post Only the link status of \p program might be modified
  */
-bool checkProgram([[maybe_unused]] GLuint program, [[maybe_unused]] std::string_view name) {
+static bool checkProgram([[maybe_unused]] GLuint program, [[maybe_unused]] std::string_view name) {
     ZoneScoped;
 
     assert(program != 0);
@@ -159,15 +159,27 @@ bool checkProgram([[maybe_unused]] GLuint program, [[maybe_unused]] std::string_
  * \pre \p name must not be empty
  * \post The OpenGL error will be GL_NO_ERROR
  */
-void checkOpenGLError([[maybe_unused]] std::string_view name) {
+static void checkOpenGLError([[maybe_unused]] std::string_view name) {
+    ZoneScoped;
     GLenum e = glGetError();
     if (e != GL_NO_ERROR) {
         throw std::runtime_error(fmt::format("OpenGL error occurred ({}) {}", name, e));
     }
 }
 
+/*
+* // Not used currently
+static void debugCallbackGL(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length,
+                            const GLchar* message, const void* userParam) {
+    fmt::print("OpenGL debug: {}\n", message);
+    if (severity >= GL_DEBUG_SEVERITY_MEDIUM) {
+        throw std::runtime_error("A severe OpenGL error occurred");
+    }
+}
+*/
+
 // Creates the shader program for points.
-GLuint createPointProgram() {
+static GLuint createPointProgram() {
     ZoneScoped;
 
     constexpr const char* vsSrc[1] = {R"(
@@ -229,8 +241,7 @@ namespace rendering {
 
 Window::Impl::Impl(std::string_view, int width, int height)
     : window{nullptr}, program{0}, vao{0}, vbo{0} {
-
-    ZoneScoped;
+     ZoneScoped;
 
     // Initialize GLFW for window handling
     if (glfwInit() != GLFW_TRUE) {
@@ -275,13 +286,16 @@ Window::Impl::Impl(std::string_view, int width, int height)
     glBindBuffer(GL_ARRAY_BUFFER, vbo);
 
     glEnableVertexAttribArray(0);
-    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, sizeof(Point), reinterpret_cast<const void*>(offsetof(Point, position)));
+    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, sizeof(Point),
+                          reinterpret_cast<const void*>(offsetof(Point, position)));
 
     glEnableVertexAttribArray(1);
-    glVertexAttribPointer(1, 1, GL_FLOAT, GL_FALSE, sizeof(Point), reinterpret_cast<const void*>(offsetof(Point, scale)));
+    glVertexAttribPointer(1, 1, GL_FLOAT, GL_FALSE, sizeof(Point),
+                          reinterpret_cast<const void*>(offsetof(Point, scale)));
 
     glEnableVertexAttribArray(2);
-    glVertexAttribPointer(2, 4, GL_UNSIGNED_BYTE, GL_TRUE, sizeof(Point), reinterpret_cast<const void*>(offsetof(Point, color_packed)));
+    glVertexAttribPointer(2, 4, GL_UNSIGNED_BYTE, GL_TRUE, sizeof(Point),
+                          reinterpret_cast<const void*>(offsetof(Point, color_packed)));
 
     glBindVertexArray(0);
 
@@ -304,13 +318,11 @@ Window::Impl::~Impl() {
 }
 
 Window::Window(std::string_view title, int width, int height)
-    : impl(new Impl(title, width, height)) {}
+    : impl(std::make_unique<Impl>(title, width, height)) {}
 
 Window::~Window() {}
 
-void Window::setTitle(std::string_view title) {
-    glfwSetWindowTitle(impl->window, CStr(title));
-}
+void Window::setTitle(std::string_view title) { glfwSetWindowTitle(impl->window, CStr(title)); }
 
 double Window::time() const { return glfwGetTime(); }
 
@@ -371,8 +383,9 @@ void Window::drawPoints(const glm::vec2* pos_data, const float* rad_data, const 
 
     if (stride_in_bytes > 0 && stride_in_bytes < sizeof(glm::vec4)) {
         // The stride is smaller than the smallest data field, which signifies an error.
-        // We could check against sizeof(Point), which would be the smallest packed size of a full structure in theory.
-        // But the user could choose to alias some of the field and use color data for position as well for example.
+        // We could check against sizeof(Point), which would be the smallest packed size of a full
+        // structure in theory. But the user could choose to alias some of the field and use color
+        // data for position as well for example.
         throw std::runtime_error("Stride is smaller than the smallest data field");
     }
 
@@ -386,9 +399,12 @@ void Window::drawPoints(const glm::vec2* pos_data, const float* rad_data, const 
             }
         } else {
             for (size_t i = 0; i < count; ++i) {
-                const glm::vec2* p = reinterpret_cast<const glm::vec2*>(reinterpret_cast<const char*>(pos_data) + i * stride_in_bytes);
-                const float*     r = reinterpret_cast<const float*>    (reinterpret_cast<const char*>(rad_data) + i * stride_in_bytes);
-                const glm::vec4* c = reinterpret_cast<const glm::vec4*>(reinterpret_cast<const char*>(col_data) + i * stride_in_bytes);
+                const glm::vec2* p = reinterpret_cast<const glm::vec2*>(
+                    reinterpret_cast<const char*>(pos_data) + i * stride_in_bytes);
+                const float* r = reinterpret_cast<const float*>(
+                    reinterpret_cast<const char*>(rad_data) + i * stride_in_bytes);
+                const glm::vec4* c = reinterpret_cast<const glm::vec4*>(
+                    reinterpret_cast<const char*>(col_data) + i * stride_in_bytes);
                 point_data[i] = {*p, *r, glm::packUnorm4x8(*c)};
             }
         }
