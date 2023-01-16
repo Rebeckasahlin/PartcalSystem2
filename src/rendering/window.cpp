@@ -263,8 +263,8 @@ Window::Impl::Impl(std::string_view, int width, int height)
 
     // Create GL objects
     program = createPointProgram();
-    glGenVertexArrays(3, &vao);
-    glGenBuffers(3, &vbo);
+    glGenVertexArrays(1, &vao);
+    glGenBuffers(1, &vbo);
 
     // Allocate vertex buffer memory
     glBindBuffer(GL_ARRAY_BUFFER, vbo);
