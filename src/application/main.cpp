@@ -40,7 +40,7 @@ int main(int, char**) try {
         window.beginFrame();
 
         const double t = window.time();
-        const float dt = static_cast<float>(t - prevTime);
+        const double dt = t - prevTime;
         prevTime = t;
 
         // Create some global smooth rocking motion
@@ -52,7 +52,7 @@ int main(int, char**) try {
             ZoneScopedN("Update particles");
 
             // Simulation dt may differ from actual dt based on the simulation speed
-            const float sim_dt = dt * speed;
+            const float sim_dt = static_cast<float>(dt) * speed;
 
             for (size_t i = 0; i < num_particles; ++i) {
                 // Apply per particle jitter
@@ -61,9 +61,8 @@ int main(int, char**) try {
                 color[i].a = std::min(color[i].a, lifetime[i]);  // Modify alpha based on lifetime
                 lifetime[i] -= sim_dt;
 
-                // Check against extent of screen or lifetime
+                // Check lifetime and reset if needed
                 if (lifetime[i] < 0.0f) {
-                    // Respawn particle
                     position[i] = {srnd(), srnd()};
                     color[i] = {rnd(), rnd(), rnd(), 1.0f};
                     size[i] = {1.0f + rnd() * 9.0f};
@@ -72,6 +71,7 @@ int main(int, char**) try {
             }
         }
 
+        // Clear screen with color
         window.clear({0, 0, 0, 1});
 
         // Draw particles
