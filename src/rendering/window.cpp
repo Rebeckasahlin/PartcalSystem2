@@ -27,6 +27,31 @@
 
 constexpr size_t VBO_CAP = 1024 * 1024;
 
+// Copy string_views into a zero terminated stack based string which is compatible with 
+// ImGui and other libraries that expect zero terminated strings
+struct CStr {
+    static constexpr size_t BufferSize = 128;
+
+    CStr(const std::string_view sv) {
+        if (sv.size() < BufferSize - 1) {
+            std::memcpy(stack.data(), sv.data(), sv.size());
+            stack[sv.size()] = 0;
+            heap = nullptr;
+        } else {
+            heap = std::make_unique<char[]>(sv.size() + 1);
+            std::memcpy(heap.get(), sv.data(), sv.size());
+            heap[sv.size()] = 0;
+        }
+    }
+
+    const char* c_str() const { return heap ? heap.get() : stack.data(); }
+    operator const char*() const { return heap ? heap.get() : stack.data(); }
+
+private:
+    std::array<char, BufferSize> stack;  // Do not initialize!
+    std::unique_ptr<char[]> heap;
+};
+
 // Internal definition of window implementation
 struct rendering::Window::Impl {
     Impl(std::string_view title, int width, int height);
@@ -283,10 +308,8 @@ Window::Window(std::string_view title, int width, int height)
 
 Window::~Window() {}
 
-void Window::clear(glm::vec4 color) {
-    // Clear the rendering buffer with the selected background color
-    glClearColor(color.r, color.g, color.b, color.a);
-    glClear(GL_COLOR_BUFFER_BIT);
+void Window::setTitle(std::string_view title) {
+    glfwSetWindowTitle(impl->window, CStr(title));
 }
 
 double Window::time() const { return glfwGetTime(); }
@@ -317,6 +340,12 @@ void Window::beginFrame() {
     ImGui_ImplOpenGL3_NewFrame();
     ImGui_ImplGlfw_NewFrame();
     ImGui::NewFrame();
+}
+
+void Window::clear(glm::vec4 color) {
+    // Clear the rendering buffer with the selected background color
+    glClearColor(color.r, color.g, color.b, color.a);
+    glClear(GL_COLOR_BUFFER_BIT);
 }
 
 void Window::drawPoint(glm::vec2 pos, float radius, glm::vec4 color) {
@@ -397,31 +426,6 @@ void Window::endFrame() {
     checkOpenGLError("endFrame");
     FrameMark;
 }
-
-// Copy string_views into a zero terminated stack based string which is compatible with ImGui
-// That is implicitly convertible to c-style strings (const char*)
-struct CStr {
-    static constexpr size_t BufferSize = 128;
-
-    CStr(const std::string_view sv) {
-        if (sv.size() < BufferSize - 1) {
-            std::memcpy(stack.data(), sv.data(), sv.size());
-            stack[sv.size()] = 0;
-            heap = nullptr;
-        } else {
-            heap = std::make_unique<char[]>(sv.size() + 1);
-            std::memcpy(heap.get(), sv.data(), sv.size());
-            heap[sv.size()] = 0;
-        }
-    }
-
-    const char* c_str() const { return heap ? heap.get() : stack.data(); }
-    operator const char*() const { return heap ? heap.get() : stack.data(); }
-
-private:
-    std::array<char, BufferSize> stack;  // Do not initialize!
-    std::unique_ptr<char[]> heap;
-};
 
 void Window::beginGuiWindow(std::string_view label) { ImGui::Begin(CStr(label)); }
 

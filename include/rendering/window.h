@@ -19,6 +19,8 @@ public:
     Window& operator=(Window&&) = delete;
     ~Window();
 
+    void setTitle(std::string_view title);
+
     // Returns a time value in seconds since window was created
     double time() const;
 
