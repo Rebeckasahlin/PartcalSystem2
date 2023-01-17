@@ -14,7 +14,7 @@ Dependencies:
  - [CMake](https://cmake.org/download/) For cross-platform compiler project generation.
  - [Vcpkg](https://github.com/microsoft/vcpkg) For dependency management
  - C++20 Required, e.g. [Visual Studio](https://visualstudio.microsoft.com/downlnow 
- New changes again, AGAIN
+ New changes again, AGAIN Again
 
 1)  Make a project folder for example 'tnm094'
 
