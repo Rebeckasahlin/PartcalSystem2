@@ -13,9 +13,8 @@ A small graphical interface is provided for visually editing parameters.
 Dependencies:
  - [CMake](https://cmake.org/download/) For cross-platform compiler project generation.
  - [Vcpkg](https://github.com/microsoft/vcpkg) For dependency management
- - C++20 Required, e.g. [Visual Studio](https://visualstudio.microsoft.com/downloads/)
-
-HEEJ nu gör jag en ändring
+ - C++20 Required, e.g. [Visual Studio](https://visualstudio.microsoft.com/downlnow 
+ New changes again, AGAIN
 
 1)  Make a project folder for example 'tnm094'
 
