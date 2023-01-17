@@ -8,6 +8,7 @@ A small graphical interface is provided for visually editing parameters.
 - /include: Header files
 - /src: Cpp files
 - /unittest: Examples of tests
+ChangeA
 
 #### Setup instructions
 Dependencies:
