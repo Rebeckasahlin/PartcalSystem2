@@ -15,6 +15,7 @@ Dependencies:
  - [Vcpkg](https://github.com/microsoft/vcpkg) For dependency management
  - C++20 Required, e.g. [Visual Studio](https://visualstudio.microsoft.com/downloads/)
 
+HEEJ nu gör jag en ändring
 
 1)  Make a project folder for example 'tnm094'
 
