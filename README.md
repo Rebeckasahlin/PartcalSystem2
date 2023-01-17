@@ -9,6 +9,8 @@ A small graphical interface is provided for visually editing parameters.
 - /src: Cpp files
 - /unittest: Examples of tests
 
+changeA
+
 #### Setup instructions
 Dependencies:
  - [CMake](https://cmake.org/download/) For cross-platform compiler project generation.
